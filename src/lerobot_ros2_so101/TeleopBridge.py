@@ -8,19 +8,28 @@ from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 # (piper_joint, scale, offset_rad, piper_min, piper_max)
+# Offsets corrected for new SO-101 calibration (2026-06-16):
+#   shoulder_pan  homing 1596→1575 (Δ−21 steps = +0.032 rad on raw)
+#   shoulder_lift homing −1346→−1239 (Δ+107 steps = −0.164 rad on raw)
+#   elbow_flex    homing 1636→1562 (Δ−74 steps = +0.114 rad on raw)
+#   wrist_flex    homing 1785→1756 (Δ−29 steps = +0.044 rad on raw)
+#   wrist_roll    homing 1851→1893 (Δ+42 steps = −0.064 rad on raw)
 _JOINT_MAP: dict[str, tuple[str, float, float, float, float]] = {
-    "shoulder_pan":  ("joint1", -1.0,     0.0,          -2.618,  2.168),
-    "shoulder_lift": ("joint2",  1.0,     math.pi / 2,   0.0,    3.14),
-    "elbow_flex":    ("joint3",  1.0,    -math.pi / 4,  -2.967,  0.0),
-    "wrist_flex":    ("joint5",  1.0,     0.0,          -1.22,   1.22),
-    "wrist_roll":    ("joint4", -1.0,     0.0,          -1.745,  1.745),
+    "shoulder_pan":  ("joint1", -1.0,  0.032,                    -2.618,  2.168),
+    "shoulder_lift": ("joint2",  1.0,  math.pi / 2 + 0.164,       0.0,    3.14),
+    "elbow_flex":    ("joint3",  1.0, -math.pi / 4 - 0.114,      -2.967,  0.0),
+    "wrist_flex":    ("joint5",  1.0, -0.044,                     -1.22,   1.22),
+    "wrist_roll":    ("joint4", -1.0, -0.064,                     -1.745,  1.745),
 }
 
 _JOINT6_HOME      = 0.0
 _GRIPPER_OPEN_M   = 0.0
 _GRIPPER_CLOSED_M = 0.035
-_GRIPPER_SO101_OPEN_RAD   = -0.6
-_GRIPPER_SO101_CLOSED_RAD =  0.6
+# Gripper range derived from new calibration (range_min=1679, range_max=3056):
+#   open  = (1679−2048)×2π/4096 = −0.566 rad  → use −0.57 (at hardware open limit)
+#   closed = (3056−2048)×2π/4096 = +1.545 rad  → use +1.54 (at hardware close limit)
+_GRIPPER_SO101_OPEN_RAD   = -0.57
+_GRIPPER_SO101_CLOSED_RAD = +1.54
 
 # Names in publish order (arm joints only, without joint6/gripper)
 _ARM_SO101_NAMES = list(_JOINT_MAP.keys())

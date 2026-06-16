@@ -5,7 +5,7 @@ SO-101 leader + Piper real robot teleoperation.
 Pokreće:
   1. robot_state_publisher   — URDF za RViz vizualizaciju
   2. piper_ctrl_single_node  — CAN SDK driver (joint_ctrl_single → piper)
-  3. MoveIt move_group       — planiranje + collision checking
+  3. MoveIt move_group       — opcionalni planning context (ne štiti direct teleop)
   4. RViz                    — vizualizacija
   5. SO-101 leader node      — čita encoder pozicije
   6. TeleopBridge (real)     — mapira SO-101 → JointState na joint_ctrl_single
@@ -23,19 +23,21 @@ Opcionalni argumenti:
   can_port:=can0          CAN port (default can0)
   port:=/dev/ttyACM0      SO-101 USB port
   scale:=1.0              Skaliranje pokreta (0.5 = upola sporije)
+  real_speed_percent:=30   Piper driver speed limit (1–100)
+  safe_start:=true         Čekaj Piper feedback i kreni relativno od trenutne poze
   launch_rviz:=true       Pokreni RViz
+  launch_moveit:=false     Pokreni move_group za ručno planiranje/debug
   auto_enable:=true       Automatski enable Piper motora
+  bridge_python:=/usr/bin/python3  Python executable za bridge/rclpy
 """
 
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 from moveit_configs_utils import MoveItConfigsBuilder
 
 os.environ["RCUTILS_COLORIZED_OUTPUT"] = "1"
@@ -54,12 +56,20 @@ def generate_launch_description() -> LaunchDescription:
                               description="USB port SO-101 leader arma"),
         DeclareLaunchArgument("scale",        default_value="1.0",
                               description="Globalni scale pokreta (0.0–1.0)"),
+        DeclareLaunchArgument("real_speed_percent", default_value="30",
+                              description="Piper driver speed limit (1–100)"),
+        DeclareLaunchArgument("safe_start",   default_value="true",
+                              description="Kreni relativno od trenutne Piper poze"),
         DeclareLaunchArgument("launch_rviz",  default_value="true",
                               description="Pokreni RViz"),
+        DeclareLaunchArgument("launch_moveit", default_value="false",
+                              description="Pokreni move_group za ručno planiranje/debug"),
         DeclareLaunchArgument("auto_enable",  default_value="true",
                               description="Automatski enable Piper motora"),
         DeclareLaunchArgument("gripper_exist", default_value="true",
                               description="Piper ima gripper"),
+        DeclareLaunchArgument("bridge_python", default_value="/usr/bin/python3",
+                              description="Python executable with matching rclpy"),
 
         # ── 1. robot_state_publisher ──────────────────────────────────────────
         Node(
@@ -86,7 +96,10 @@ def generate_launch_description() -> LaunchDescription:
             }],
         ),
 
-        # ── 3. MoveIt move_group ──────────────────────────────────────────────
+        # ── 3. Optional MoveIt move_group ─────────────────────────────────────
+        # Teleop commands below go directly to joint_ctrl_single.  This move_group
+        # is useful for manual planning/debug, but it does not collision-check or
+        # gate the direct SO-101 teleop stream.
         Node(
             package="moveit_ros_move_group",
             executable="move_group",
@@ -104,6 +117,7 @@ def generate_launch_description() -> LaunchDescription:
                     "use_sim_time": False,
                 },
             ],
+            condition=IfCondition(LaunchConfiguration("launch_moveit")),
         ),
 
         # ── 4. RViz ───────────────────────────────────────────────────────────
@@ -141,12 +155,15 @@ def generate_launch_description() -> LaunchDescription:
             package="lerobot_ros2_so101",
             executable="so101_piper_teleop_bridge.py",
             name="so101_piper_teleop_bridge",
-            prefix="/usr/bin/python3",
+            prefix=LaunchConfiguration("bridge_python"),
             parameters=[{
                 "mode":                    "real",
                 "so101_joint_states_topic": "/so101/joint_states",
                 "joint_ctrl_topic":         "joint_ctrl_single",
                 "scale":                    LaunchConfiguration("scale"),
+                "real_speed_percent":       LaunchConfiguration("real_speed_percent"),
+                "safe_start":               LaunchConfiguration("safe_start"),
+                "piper_feedback_topic":      "joint_states_feedback",
             }],
             output="screen",
         ),

@@ -10,6 +10,7 @@ Optional args:
   trajectory_ms    -- waypoint horizon in milliseconds (default 100)
   arm_topic        -- arm controller topic (default /arm_controller/joint_trajectory)
   gripper_topic    -- gripper controller topic (default /gripper_controller/joint_trajectory)
+  bridge_python    -- Python executable for the bridge (default /usr/bin/python3)
 """
 
 from launch import LaunchDescription
@@ -32,6 +33,8 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("gripper_topic",
                               default_value="/gripper_controller/joint_trajectory",
                               description="Piper gripper controller trajectory topic"),
+        DeclareLaunchArgument("bridge_python", default_value="/usr/bin/python3",
+                              description="Python executable with matching rclpy"),
 
         # SO-101 leader — publishes on /so101/joint_states (not /joint_states)
         # so it doesn't collide with Piper sim's joint_state_broadcaster.
@@ -48,14 +51,11 @@ def generate_launch_description() -> LaunchDescription:
 
         # Bridge: /so101/joint_states → arm_controller + gripper_controller
         #
-        # prefix="/usr/bin/python3" forces the system Python 3.12 instead of the
-        # lerobot uv venv Python 3.10.  The bridge does not need lerobot, and
-        # rclpy's C extension is compiled only for Python 3.12 (Jazzy).
         Node(
             package="lerobot_ros2_so101",
             executable="so101_piper_teleop_bridge.py",
             name="so101_piper_teleop_bridge",
-            prefix="/usr/bin/python3",
+            prefix=LaunchConfiguration("bridge_python"),
             parameters=[{
                 "so101_joint_states_topic": "/so101/joint_states",
                 "arm_trajectory_topic":     LaunchConfiguration("arm_topic"),

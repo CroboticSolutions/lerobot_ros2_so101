@@ -14,6 +14,7 @@ ament_python_install_package(${PROJECT_NAME} PACKAGE_DIR src/${PROJECT_NAME})
 install(PROGRAMS scripts/leader_node.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/follower_node.py DESTINATION lib/${PROJECT_NAME})
 install(PROGRAMS scripts/so101_piper_teleop_bridge.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS scripts/so101_ur5e_teleop_bridge.py DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
